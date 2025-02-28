@@ -81,7 +81,7 @@ test "context File" {
 
 test "context Directory" {
     const allocator = std.testing.allocator;
-    var ctx = try createContext(allocator, "/assets/style.css");
+    var ctx = try createContext(allocator, "/style.css");
     defer ctx.destroy();
 
     try ctx.dir("src/test/assets", .{});
@@ -90,7 +90,7 @@ test "context Directory" {
 
 test "context Directory with file" {
     const allocator = std.testing.allocator;
-    var ctx = try createContext(allocator, "/assets/js/script.js");
+    var ctx = try createContext(allocator, "/js/script.js");
     defer ctx.destroy();
 
     try ctx.dir("src/test/assets", .{});
