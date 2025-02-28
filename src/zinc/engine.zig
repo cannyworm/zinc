@@ -144,8 +144,8 @@ pub fn deinit(self: *Self) void {
 /// Accept a new connection.
 // fn accept(self: *Engine) ?std.net.Server.Connection {
 fn accept(self: *Engine) ?std.net.Stream {
-    // self.mutex.lock();
-    // defer self.mutex.unlock();
+    self.mutex.lock();
+    defer self.mutex.unlock();
 
     if (self.stopping.isSet()) return null;
 
