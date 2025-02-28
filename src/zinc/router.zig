@@ -94,17 +94,24 @@ pub fn handleConn(self: *Self, allocator: std.mem.Allocator, conn: std.net.Strea
     const ctx = try Context.init(.{ .request = req, .response = res, .allocator = allocator, .data = self.data });
     defer ctx.destroy();
 
+    std.debug.print("handleConn#req_mathod {any} req_target {s}\n", .{ req_method, req_target });
+
     const match_route = self.getRoute(req_method, req_target) catch |err| {
+        std.debug.print("handleConn#Can't find route\n", .{});
         try self.handleError(err, ctx);
         try ctx.doRequest();
         return;
     };
+
+    ctx.data = match_route;
+
+    std.debug.print("handleConn#route {s}\n", .{match_route.path});
+
     defer {
         if (!ctx.response.isKeepAlive()) {
             conn.close();
         }
     }
-
     try match_route.handle(ctx);
 }
 
@@ -227,6 +234,8 @@ fn getRouteTree(self: *Self, target: []const u8) anyerror!*RouteTree {
     const url_target = try url.parseUrl(target);
     const path = url_target.path;
 
+    std.debug.print("getRouteTree# path:{s}\n", .{path});
+
     if (self.route_tree.find(path)) |f| return f;
 
     return error.NotFound;
@@ -239,8 +248,10 @@ pub fn getRoute(self: *Self, method: std.http.Method, target: []const u8) anyerr
     const url_target = try url.parseUrl(target);
 
     const path: []const u8 = url_target.path;
+    std.debug.print("getRoute#path:{s} \n", .{path});
 
     const rTree = try self.getRouteTree(path);
+    std.debug.print("getRoute#rTree:{s} \n", .{rTree.value});
 
     if (rTree.routes) |*routes| {
         if (routes.items.len == 0) {

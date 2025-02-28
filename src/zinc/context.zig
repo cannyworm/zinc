@@ -33,7 +33,14 @@ handlers: std.ArrayList(handlerFn) = undefined,
 
 index: u8 = 0, // Adjust the type based on your specific needs
 
-data: *anyopaque = undefined,
+data: ?*anyopaque = undefined,
+
+pub fn getRoute(self: *Self) ?*Route {
+    if (self.data == null)
+        return null;
+
+    return @ptrCast(@alignCast(self.data.?));
+}
 
 pub fn destroy(self: *Self) void {
     self.params.deinit();
@@ -131,28 +138,46 @@ pub fn file(
 }
 
 pub fn dir(self: *Self, dir_name: []const u8, conf: Config.Context) anyerror!void {
+    const route = self.getRoute();
+
+    const subpath_start = blk: {
+        if (route) |r| {
+            std.debug.print("cur_route {s}\n", .{r.path});
+            break :blk std.mem.count(u8, r.path, "/");
+        }
+        break :blk 0;
+    };
+
     const target = self.request.target;
 
-    const target_file = std.fs.path.basename(target);
+    // This look like security issue with parse traverse (..\ ../) and stuff
+    const target_subpath = blk: {
+        var start: usize = 0;
+        for (0..subpath_start) |_| {
+            if (std.mem.indexOf(u8, target[start..], "/")) |found| {
+                start = found + 1;
+            } else {
+                return error.MissMatchPath;
+            }
+        }
 
-    var targets = std.mem.splitSequence(u8, target, "/");
+        break :blk target[start + 1 ..];
+    };
 
-    // Todo, ????
-    _ = targets.first();
+    std.debug.print("target_subpath {s}\n", .{target_subpath});
 
-    var dirs = std.mem.splitSequence(u8, dir_name, targets.next().?);
+    const real_dir_path = try std.fs.cwd().realpathAlloc(self.allocator, dir_name);
+    defer self.allocator.free(real_dir_path);
 
-    var sub_path: []u8 = undefined;
-    if (dirs.buffer.len > 0) {
-        sub_path = try std.fmt.allocPrint(self.allocator, "{s}/{s}", .{ dirs.first(), target });
-    } else {
-        sub_path = try std.fmt.allocPrint(self.allocator, "{s}/{s}", .{ dir_name, target_file });
-    }
+    const sub_path = try std.fs.path.join(self.allocator, &.{ real_dir_path, target_subpath });
     defer self.allocator.free(sub_path);
 
-    var f = std.fs.cwd().openFile(sub_path, .{}) catch |err| {
+    std.debug.print("sub_path {s}\n", .{sub_path});
+
+    var f = std.fs.openFileAbsolute(sub_path, .{}) catch |err| {
         return err;
     };
+
     defer f.close();
 
     // Read the file into a buffer.

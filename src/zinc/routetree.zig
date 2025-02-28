@@ -300,17 +300,36 @@ pub const RouteTree = struct {
             if (segment.len == 0) {
                 continue;
             }
-            // Check if the child node exists
+
             if (current.children) |children| {
-                if (children.get(segment)) |child| {
-                    current = child;
-                } else {
-                    return null; // Node not found
-                }
-            } else {
-                return null; // Node not found
+                var route_it = children.iterator();
+                current = blk: {
+                    while (route_it.next()) |entry| {
+                        const child = entry.value_ptr.*;
+                        if (child.is_wildcard or std.mem.eql(u8, entry.key_ptr.*, segment))
+                            break :blk child;
+                    }
+
+                    // If current is a wild_card and can't find next route then return use current wildcard
+                    if (current.is_wildcard)
+                        return current;
+
+                    return null;
+                };
             }
+
+            // Check if the child node exists
+            // if (current.children) |children| {
+            //     if (children.get(segment)) |child| {
+            //         current = child;
+            //     } else {
+            //         return null; // Node not found
+            //     }
+            // } else {
+            //     return null; // Node not found
+            // }
         }
+
         return current; // Return the found node
     }
 
